@@ -1,0 +1,22 @@
+# Build output and CMake state
+/build/
+/build-sanitized/
+/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+Testing/
+
+# Runtime data (the app creates this safely)
+/data/*.wrx
+/data/*.tmp
+
+# OS/editor clutter
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Credentials and local environment
+.env
+.env.*
+!.env.example
