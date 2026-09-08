@@ -2,13 +2,16 @@
 
 Automated tests are in `tests/test_warehouse.cpp` and run with CTest. They cover:
 
-- Product add, duplicate rejection, hash lookup, missing lookup, stock increase/decrease, and deletion
-- BST alphabetical traversal and ascending/descending merge-sort output
+- Product add, duplicate rejection, chained-hash collision lookup, missing lookup,
+  stock increase/decrease, and deletion
+- BST alphabetical traversal, successful/missing search, deletion behavior, and
+  ascending/descending merge-sort output
 - Supplier duplicate and deletion behavior
 - FIFO queue order and empty dequeue
-- Heap priority ordering and empty pop
+- Heap priority ordering, deterministic equal-priority ordering, and empty pop
 - Stack push, peek, pop, and empty behavior
-- Service validation, stock undo, priority-first processing, and restart persistence
+- Service validation, stock undo, priority-first processing, restart persistence,
+  missing-file startup, and malformed-record rejection
 
 Run the full suite:
 

@@ -68,6 +68,9 @@ cmake --build build-sanitized --parallel
 ctest --test-dir build-sanitized --output-on-failure
 ```
 
+GitHub Actions runs both of these configurations on pushes and pull requests to
+`main`; see [ci.yml](.github/workflows/ci.yml).
+
 ## Limitations
 
 WAREX is intentionally a single-user local application. It binds only to loopback (`127.0.0.1`), has no authentication, and is not intended as a network-deployed multi-user service. The BST is intentionally unbalanced for transparent academic demonstration, so its worst case is O(n).

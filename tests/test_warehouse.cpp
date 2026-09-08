@@ -1,9 +1,11 @@
 #include "warehouse_ds.h"
 #include "warehouse_service.hpp"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 
@@ -68,6 +70,16 @@ DSOrder order(
     return o;
 }
 
+unsigned test_hash_bucket(const std::string& key) {
+    unsigned hash = 5381;
+
+    for (const unsigned char character : key) {
+        hash = ((hash << 5) + hash) ^ character;
+    }
+
+    return hash % 53;
+}
+
 void data_structure_tests() {
     DSWarehouse* w = ds_warehouse_create();
 
@@ -116,6 +128,34 @@ void data_structure_tests() {
         )
     );
 
+    // Chained hash-table collision: both IDs must remain retrievable.
+    std::array<std::string, 53> first_key_in_bucket{};
+    std::string collision_a_id;
+    std::string collision_b_id;
+
+    for (int i = 0; i < 200 && collision_b_id.empty(); ++i) {
+        const auto candidate = "COL-" + std::to_string(i);
+        auto& first_key = first_key_in_bucket[test_hash_bucket(candidate)];
+
+        if (first_key.empty()) {
+            first_key = candidate;
+        } else {
+            collision_a_id = first_key;
+            collision_b_id = candidate;
+        }
+    }
+
+    CHECK(!collision_a_id.empty());
+    CHECK(!collision_b_id.empty());
+
+    auto collision_a = product(collision_a_id.c_str(), "Collision A", 7);
+    auto collision_b = product(collision_b_id.c_str(), "Collision B", 9);
+
+    CHECK(ds_add_product(w, &collision_a));
+    CHECK(ds_add_product(w, &collision_b));
+    CHECK(ds_find_product(w, collision_a.id, &found));
+    CHECK(ds_find_product(w, collision_b.id, &found));
+
     // Stock cannot become negative.
     CHECK(!ds_adjust_stock(w, "B", -4));
 
@@ -135,7 +175,7 @@ void data_structure_tests() {
             &count
         );
 
-    CHECK(count == 3);
+    CHECK(count == 5);
     CHECK(
         ordered != nullptr &&
         std::string(ordered[0].name) == "Alpha"
@@ -204,14 +244,28 @@ void data_structure_tests() {
     auto p2 = order("P2", "A", 1, 2);
     auto p5 = order("P5", "A", 1, 5);
     auto p3 = order("P3", "A", 1, 3);
+    auto p4a = order("P4A", "A", 1, 4);
+    auto p4b = order("P4B", "A", 1, 4);
 
     CHECK(ds_enqueue_priority_order(w, &p2));
     CHECK(ds_enqueue_priority_order(w, &p5));
     CHECK(ds_enqueue_priority_order(w, &p3));
+    CHECK(ds_enqueue_priority_order(w, &p4a));
+    CHECK(ds_enqueue_priority_order(w, &p4b));
 
     CHECK(
         ds_pop_priority_order(w, &out) &&
         std::string(out.id) == "P5"
+    );
+
+    CHECK(
+        ds_pop_priority_order(w, &out) &&
+        std::string(out.id) == "P4A"
+    );
+
+    CHECK(
+        ds_pop_priority_order(w, &out) &&
+        std::string(out.id) == "P4B"
     );
 
     CHECK(
@@ -243,6 +297,7 @@ void data_structure_tests() {
     // Product removal.
     CHECK(ds_remove_product(w, "B"));
     CHECK(!ds_find_product(w, "B", nullptr));
+    CHECK(!ds_find_product_by_name(w, "Beta", nullptr));
 
     ds_warehouse_destroy(w);
 }
@@ -505,6 +560,53 @@ void service_tests() {
     }
 
     std::filesystem::remove(path);
+
+    // A missing persistence file is a valid empty warehouse start.
+    const auto missing_path =
+        (
+            std::filesystem::temp_directory_path() /
+            "warex_missing_test_data.wrx"
+        ).string();
+
+    std::filesystem::remove(missing_path);
+
+    {
+        warex::WarehouseService missing(missing_path);
+        const auto missing_load = missing.load();
+
+        CHECK(missing_load.ok);
+        CHECK(missing.snapshot().products == 0);
+        CHECK(missing.snapshot().suppliers == 0);
+    }
+
+    // Malformed records must be skipped without crashing or loading data.
+    const auto malformed_path =
+        (
+            std::filesystem::temp_directory_path() /
+            "warex_malformed_test_data.wrx"
+        ).string();
+
+    {
+        std::ofstream malformed(malformed_path, std::ios::trunc);
+        malformed << "WAREX-1\n";
+        malformed << "P \"only-an-id\"\n";
+        malformed << "X unsupported-record\n";
+    }
+
+    {
+        warex::WarehouseService malformed(malformed_path);
+        const auto malformed_load = malformed.load();
+
+        CHECK(malformed_load.ok);
+        CHECK(
+            malformed_load.message.find("2 invalid record(s) skipped") !=
+            std::string::npos
+        );
+        CHECK(malformed.snapshot().products == 0);
+        CHECK(malformed.snapshot().suppliers == 0);
+    }
+
+    std::filesystem::remove(malformed_path);
 }
 
 } // namespace
