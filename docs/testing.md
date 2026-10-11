@@ -11,7 +11,7 @@ Automated tests are in `tests/test_warehouse.cpp` and run with CTest. They cover
 - Heap priority ordering, deterministic equal-priority ordering, and empty pop
 - Stack push, peek, pop, and empty behavior
 - Service validation, stock undo, priority-first processing, restart persistence,
-  missing-file startup, and malformed-record rejection
+  missing-file startup, malformed-record rejection, and idempotent demo-data loading
 
 Run the full suite:
 

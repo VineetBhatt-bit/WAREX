@@ -609,11 +609,52 @@ void service_tests() {
     std::filesystem::remove(malformed_path);
 }
 
+void demo_data_tests() {
+    const auto path =
+        (
+            std::filesystem::temp_directory_path() /
+            "warex_demo_test_data.wrx"
+        ).string();
+
+    std::filesystem::remove(path);
+
+    warex::WarehouseService service(path);
+
+    const auto initial_seed = service.seed_demo_data();
+
+    CHECK(initial_seed.ok);
+    CHECK(service.snapshot().suppliers == 2);
+    CHECK(service.snapshot().products == 4);
+
+    // Re-running from the dashboard must be safe for a populated warehouse.
+    const auto repeat_seed = service.seed_demo_data();
+
+    CHECK(repeat_seed.ok);
+    CHECK(
+        repeat_seed.message.find("already available") !=
+        std::string::npos
+    );
+    CHECK(service.snapshot().products == 4);
+
+    // A partially deleted demo set is repaired without changing existing data.
+    CHECK(service.delete_product("PRD-004").ok);
+    CHECK(service.snapshot().products == 3);
+
+    const auto repair_seed = service.seed_demo_data();
+
+    CHECK(repair_seed.ok);
+    CHECK(service.snapshot().products == 4);
+    CHECK(service.find_product_by_name("Packing Tape").has_value());
+
+    std::filesystem::remove(path);
+}
+
 } // namespace
 
 int main() {
     data_structure_tests();
     service_tests();
+    demo_data_tests();
 
     if (failures) {
         std::cerr

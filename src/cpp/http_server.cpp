@@ -33,7 +33,7 @@ std::map<std::string,std::string> form(const std::string& body){std::map<std::st
 bool integer(const std::string& s,int& out){if(s.empty())return false;size_t pos=0;try{long v=std::stol(s,&pos);if(pos!=s.size()||v<-100000000||v>100000000)return false;out=static_cast<int>(v);return true;}catch(...){return false;}}
 bool decimal(const std::string& s,double& out){if(s.empty())return false;size_t pos=0;try{out=std::stod(s,&pos);return pos==s.size()&&std::isfinite(out);}catch(...){return false;}}
 bool copy_field(const std::map<std::string,std::string>& f,const char* key,char* out,size_t cap,bool required=true){auto it=f.find(key);if(it==f.end()){if(required)return false;out[0]=0;return true;}if((required&&it->second.empty())||it->second.size()>=cap)return false;std::snprintf(out,cap,"%s",it->second.c_str());return true;}
-std::string content_type(const std::string& path){if(path.ends_with(".css"))return"text/css; charset=utf-8";if(path.ends_with(".js"))return"application/javascript; charset=utf-8";return"text/html; charset=utf-8";}
+std::string content_type(const std::string& path){if(path.ends_with(".css"))return"text/css; charset=utf-8";if(path.ends_with(".js"))return"application/javascript; charset=utf-8";if(path.ends_with(".png"))return"image/png";return"text/html; charset=utf-8";}
 
 class Server {
 public:
@@ -74,6 +74,7 @@ private:
         if(method=="POST"&&path=="/api/orders"){DSOrder o{};int qty,priority;if(!copy_field(fields,"id",o.id,sizeof o.id)||!copy_field(fields,"product_id",o.product_id,sizeof o.product_id)||!copy_field(fields,"customer",o.customer,sizeof o.customer)||!integer(fields["quantity"],qty)||!integer(fields["priority"],priority)){reply(fd,400,"{\"ok\":false,\"message\":\"Enter complete order details.\"}");return;}o.quantity=qty;o.priority=priority;result(fd,service_.add_order(o),201);return;}
         if(method=="POST"&&path=="/api/orders/process"){result(fd,service_.process_next_order());return;}
         if(method=="POST"&&path=="/api/actions/undo"){result(fd,service_.undo_last_action());return;}
+        if(method=="GET"&&path=="/assets/warex-logo.png"){std::ifstream in(frontend_.parent_path()/"assets"/"warex-logo.png",std::ios::binary);if(!in){reply(fd,404,"Logo asset is unavailable.","text/plain");return;}std::ostringstream asset;asset<<in.rdbuf();reply(fd,200,asset.str(),"image/png");return;}
         if(method=="GET"&&path=="/"){std::ifstream in(frontend_);if(!in){reply(fd,500,"WAREX UI file is unavailable.","text/plain");return;}std::ostringstream page;page<<in.rdbuf();reply(fd,200,page.str(),content_type(frontend_.string()));return;}
         reply(fd,404,"{\"ok\":false,\"message\":\"Route not found.\"}");
     }

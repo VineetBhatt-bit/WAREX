@@ -349,13 +349,6 @@ void WarehouseService::record_stock_action(
 }
 
 Result WarehouseService::seed_demo_data() {
-    if (ds_product_count(data_) || ds_supplier_count(data_)) {
-        return {
-            false,
-            "Demo data can only be loaded into an empty warehouse."
-        };
-    }
-
     DSSupplier a{};
     std::snprintf(a.id, sizeof a.id, "SUP-001");
     std::snprintf(a.name, sizeof a.name, "Northstar Supply Co.");
@@ -376,12 +369,21 @@ Result WarehouseService::seed_demo_data() {
         "sales@metro.example"
     );
 
-    if (!ds_add_supplier(data_, &a) ||
-        !ds_add_supplier(data_, &b)) {
-        return {
-            false,
-            "Demo supplier data could not be created."
-        };
+    std::size_t added_suppliers = 0;
+
+    for (const auto* supplier : {&a, &b}) {
+        if (ds_find_supplier(data_, supplier->id, nullptr)) {
+            continue;
+        }
+
+        if (!ds_add_supplier(data_, supplier)) {
+            return {
+                false,
+                "Demo supplier data could not be created."
+            };
+        }
+
+        ++added_suppliers;
     }
 
     const struct {
@@ -436,7 +438,13 @@ Result WarehouseService::seed_demo_data() {
         }
     };
 
+    std::size_t added_products = 0;
+
     for (const auto& d : demo) {
+        if (ds_find_product(data_, d.id, nullptr)) {
+            continue;
+        }
+
         DSProduct p{};
 
         std::snprintf(p.id, sizeof p.id, "%s", d.id);
@@ -465,11 +473,23 @@ Result WarehouseService::seed_demo_data() {
                 "Demo product data could not be created."
             };
         }
+
+        ++added_products;
+    }
+
+    if (!added_suppliers && !added_products) {
+        return {
+            true,
+            "Demo data is already available; existing warehouse data was unchanged."
+        };
     }
 
     return persist_after({
         true,
-        "Demo warehouse data loaded."
+        "Added " + std::to_string(added_suppliers) +
+            " demo supplier(s) and " +
+            std::to_string(added_products) +
+            " demo product(s)."
     });
 }
 
